@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pretty_progress"
+version = "0.1.4"
+description = "A Python module to fuzzy extract dates from text corpuses."
+readme = "README.md"
+license = {text = "MIT License"}
+authors = [
+    {name = "Hal Kolb", email = "hal@kolb.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+keywords = ["progress bar", "terminal", "progress", "python"]
+requires-python = ">=3.6"
+
+[project.urls]
+homepage = "https://github.com/hal609/date_extractor"
+repository = "https://github.com/hal609/date_extractor"
+bug-tracker = "https://github.com/hal609/date_extractor/issues"
