@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "date_extractor"
+name = "date_extractor_hal609"
 version = "0.1.0"
 description = "A Python module to fuzzy extract dates from text corpuses."
 readme = "README.md"
