@@ -73,10 +73,15 @@ def find_dates(text):
     words = text.split()
 
     tokens = []
+    located_positions = set()
+
     for indicator in found_indicators:
         token, token_type = indicator.token, indicator.time_type
 
         for i, w in enumerate(words):
+            # Skip previously matched entries to prevent collisions
+            if i in located_positions: continue
+            
             w_to_check = w
 
             # Strip extra characters to ensure indicators are located correctly in text recognition 
@@ -92,6 +97,7 @@ def find_dates(text):
             if token == w_to_check:
                 if token_running_counts[token] == token_counts[token]: break
                 token_running_counts[token] += 1
+                located_positions.add(i)
                 tokens.append(DateIndicator(token, i, token_type))
                 if token_running_counts[token] == token_counts[token]: break
     
