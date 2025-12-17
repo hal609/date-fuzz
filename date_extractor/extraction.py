@@ -282,7 +282,7 @@ def strip_leading_trailing_chars(datetime_string: str) -> str:
     return datetime_string
 
 
-def compose_dt(year, month, day, weekday, time) -> str:
+def compose_dt(year: str, month: str, day: str, weekday: str, time: str) -> str:
     composite_date = f"{year}-{month.lower()}-{day}"
     composite_date = strip_leading_trailing_chars(composite_date)
 
@@ -334,7 +334,9 @@ def get_token_type(group: list[DateIndicator], tok_type: IndicatorType) -> str:
     return ""
 
 
-def update_next_datetime(group, year: str, month: str, day: str, weekday: str, time: str):
+def update_next_datetime(
+    group: list[DateIndicator], year: str, month: str, day: str, weekday: str, time: str
+) -> tuple[str, str, str, str, str]:
     if has_token_type(group, IndicatorType.YEAR):
         new_year = get_token_type(group, IndicatorType.YEAR)
         # If the next date is in a new year then reset all lower level info e.g. month and day and update year
