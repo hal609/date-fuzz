@@ -1,7 +1,7 @@
 import re
 from copy import deepcopy
 
-from extraction_classes import (
+from .extraction_classes import (
     DateIndicator,
     IndicatorType,
     date_dict,
@@ -403,8 +403,3 @@ def format_token_groups(groups: list[list[DateIndicator]]) -> list[tuple[str, in
         formatted_groups.append(compose_dt(year, month, day, weekday, time))
 
     return list(zip(formatted_groups, group_start_locations))
-
-
-text = "A thing happened on Sunday Jan 1st 2012 and the next morning at 09:15 and also jan 15th at 12am in 2018."
-dates = find_dates(text)
-print(dates)
