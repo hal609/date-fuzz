@@ -1,7 +1,7 @@
 import re
 from copy import deepcopy
 
-from .extraction_classes import (
+from extraction_classes import (
     DateIndicator,
     IndicatorType,
     date_dict,
@@ -158,7 +158,6 @@ def find_dates(text: str) -> list[tuple[str, int]]:
                 tokens.append(DateIndicator(token, i, token_type))
                 if token_running_counts[token] == token_counts[token]:
                     break
-
     groups = group_tokens(text, tokens)
     formatted_groups = format_token_groups(groups)
 
@@ -273,6 +272,57 @@ def time_formatter(time_string: str) -> str:
     return f"{hours_num:02}:{(mins):02}"
 
 
+def strip_leading_trailing_chars(datetime_string: str) -> str:
+    strip_chars = [" ", "-"]
+    while datetime_string[-1] in strip_chars:
+        datetime_string = datetime_string[:-1]
+    while datetime_string[0] in strip_chars:
+        datetime_string = datetime_string[1:]
+
+    return datetime_string
+
+
+def compose_dt(year, month, day, weekday, time) -> str:
+    composite_date = f"{year}-{month.lower()}-{day}"
+    composite_date = strip_leading_trailing_chars(composite_date)
+
+    composite_datetime = f"{weekday} {composite_date} {time_formatter(time)}"
+    composite_datetime = strip_leading_trailing_chars(composite_datetime)
+
+    return composite_datetime
+
+
+def update_day(day: str, new_day: str, weekday: str) -> tuple[str, str]:
+    offset_match = re.match(
+        r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+day[s]?\s+(later|after)", new_day, re.IGNORECASE
+    )
+
+    # Skip updating the day if the token indicates the day is the same as the previous
+    if re.match(r"(?:that|same|this) (?:day|morning|afternoon|night|evening)|today|earlier on", new_day, re.IGNORECASE):
+        return day, weekday
+    # Increment the day if the token indicates it refers to the day after
+    elif re.match(
+        r"(?:next|following|subsequent) (?:day|morning|afternoon|night|evening)|day after", new_day, re.IGNORECASE
+    ):
+        if weekday.lower() in days_of_the_week:
+            day_index = days_of_the_week.index(weekday.lower())
+            next_day_index = (day_index + 1) % 7
+            weekday = days_of_the_week[next_day_index].capitalize()
+        return f"{int(day) + 1:02}", weekday
+    # If token indicates a greater number of days later
+    elif offset_match:
+        number_str = offset_match.group(1)
+
+        # Determine the offset value
+        offset = int(number_str) if number_str.isdigit() else number_map[number_str]
+
+        if offset is not None:
+            return f"{int(day) + offset:02}", ""
+    # Otherwise just return new day and clear weekday
+    else:
+        return new_day, ""
+
+
 def has_token_type(group: list[DateIndicator], tok_type: IndicatorType) -> bool:
     return any(entry.time_type == tok_type for entry in group)
 
@@ -284,14 +334,45 @@ def get_token_type(group: list[DateIndicator], tok_type: IndicatorType) -> str:
     return ""
 
 
-def strip_leading_trailing_chars(datetime_string: str) -> str:
-    strip_chars = [" ", "-"]
-    while datetime_string[-1] in strip_chars:
-        datetime_string = datetime_string[:-1]
-    while datetime_string[0] in strip_chars:
-        datetime_string = datetime_string[1:]
+def update_next_datetime(group, year: str, month: str, day: str, weekday: str, time: str):
+    if has_token_type(group, IndicatorType.YEAR):
+        new_year = get_token_type(group, IndicatorType.YEAR)
+        # If the next date is in a new year then reset all lower level info e.g. month and day and update year
+        if new_year != year:
+            month = "00"
+            day = "00"
+            weekday = ""
+            time = ""
+            year = new_year
 
-    return datetime_string
+    if has_token_type(group, IndicatorType.MONTH):
+        new_month = get_token_type(group, IndicatorType.MONTH)
+        # If the next date is in a new month then reset all lower level info e.g. day, and update month
+        if new_month != month:
+            day = "00"
+            weekday = ""
+            time = ""
+            month = new_month
+
+    if has_token_type(group, IndicatorType.DAY):
+        new_day = get_token_type(group, IndicatorType.DAY)
+        # If day has changed then clear out previous time
+        if new_day != day:
+            time = ""
+        day, weekday = update_day(day, new_day, weekday)
+
+    time = get_token_type(group, IndicatorType.TIME) if has_token_type(group, IndicatorType.TIME) else time
+
+    if day.lower() in date_dict:
+        day = date_dict[day.lower()]
+
+    if has_token_type(group, IndicatorType.WEEKDAY):
+        weekday = get_token_type(group, IndicatorType.WEEKDAY)
+
+    if month.lower() in month_dict:
+        month = month_dict[month.lower()]
+
+    return year, month, day, weekday, time
 
 
 def format_token_groups(groups: list[list[DateIndicator]]) -> list[tuple[str, int]]:
@@ -317,81 +398,13 @@ def format_token_groups(groups: list[list[DateIndicator]]) -> list[tuple[str, in
             formatted_groups.append(get_token_type(group, IndicatorType.DATE))
             continue
 
-        if has_token_type(group, IndicatorType.YEAR):
-            new_year = get_token_type(group, IndicatorType.YEAR)
-            # If the next date is in a new year then reset all lower level info e.g. month and day and update year
-            if new_year != year:
-                month = "00"
-                day = "00"
-                weekday = ""
-                time = ""
-                year = new_year
+        year, month, day, weekday, time = update_next_datetime(group, year, month, day, weekday, time)
 
-        if has_token_type(group, IndicatorType.MONTH):
-            new_month = get_token_type(group, IndicatorType.MONTH)
-            # If the next date is in a new month then reset all lower level info e.g. day, and update month
-            if new_month != month:
-                day = "00"
-                weekday = ""
-                time = ""
-                month = new_month
-
-        if has_token_type(group, IndicatorType.DAY):
-            new_day = get_token_type(group, IndicatorType.DAY)
-
-            # If day has changed then clear out previous time and weekday
-            if new_day != day:
-                time = ""
-                # weekday = ""
-
-            offset_match = re.match(
-                r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+day[s]?\s+(later|after)",
-                new_day,
-                re.IGNORECASE,
-            )
-            if re.match(
-                r"(?:that|same|this) (?:day|morning|afternoon|night|evening)|today|earlier on", new_day, re.IGNORECASE
-            ):
-                # Skip updating the day if the token indicates the day is the same as the previous
-                pass
-            elif re.match(
-                r"(?:next|following|subsequent) (?:day|morning|afternoon|night|evening)", new_day, re.IGNORECASE
-            ):
-                # if new_day in ["next day", "following day", "day after", "day later"]:
-                day = f"{int(day) + 1:02}"
-                if weekday.lower() in days_of_the_week:
-                    day_index = days_of_the_week.index(weekday.lower())
-                    next_day_index = (day_index + 1) % 7
-                    weekday = days_of_the_week[next_day_index].capitalize()
-            elif offset_match:
-                number_str = offset_match.group(1)
-
-                # Determine the offset value
-                offset = int(number_str) if number_str.isdigit() else number_map[number_str]
-
-                if offset is not None:
-                    day = f"{int(day) + offset:02}"
-            else:
-                day = new_day
-
-        if has_token_type(group, IndicatorType.TIME):
-            time = get_token_type(group, IndicatorType.TIME)
-
-        if day.lower() in date_dict:
-            day = date_dict[day.lower()]
-
-        if has_token_type(group, IndicatorType.WEEKDAY):
-            weekday = get_token_type(group, IndicatorType.WEEKDAY)
-
-        if month.lower() in month_dict:
-            month = month_dict[month.lower()]
-
-        composite_date = f"{year}-{month.lower()}-{day}"
-        composite_date = strip_leading_trailing_chars(composite_date)
-
-        composite_datetime = f"{weekday} {composite_date} {time_formatter(time)}"
-        composite_datetime = strip_leading_trailing_chars(composite_datetime)
-
-        formatted_groups.append(composite_datetime)
+        formatted_groups.append(compose_dt(year, month, day, weekday, time))
 
     return list(zip(formatted_groups, group_start_locations))
+
+
+text = "A thing happened on Sunday Jan 1st 2012 and the next morning at 09:15 and also jan 15th at 12am in 2018."
+dates = find_dates(text)
+print(dates)
