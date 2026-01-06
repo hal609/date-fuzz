@@ -148,6 +148,8 @@ def find_dates(text: str) -> list[tuple[str, int]]:
             # Strip extra characters to ensure indicators are located correctly in text recognition
             w_to_check = w_to_check.replace(".", "")
             w_to_check = w_to_check.replace(",", "")
+            w_to_check = w_to_check.replace(")", "")
+            w_to_check = w_to_check.replace("(", "")
             # w_to_check = w_to_check.replace(" ", "")
 
             if token == w_to_check:
