@@ -158,8 +158,17 @@ def find_dates(text: str) -> list[tuple[str, int]]:
                 token_running_counts[token] += 1
                 located_positions.add(i)
                 tokens.append(DateIndicator(token, i, token_type))
+                found_indicators.remove(indicator)
                 if token_running_counts[token] == token_counts[token]:
                     break
+    
+    # Peform backup search (counting the number of spaces preceeding
+    # the token) for any tokens which were not located in previous step
+    for indicator in found_indicators:
+        token, token_type = indicator.token, indicator.time_type
+        spaces_before_token = text[:text.find(token)].count(" ")
+        tokens.append(DateIndicator(token, spaces_before_token, token_type))
+
     groups = group_tokens(text, tokens)
     formatted_groups = format_token_groups(groups)
 
