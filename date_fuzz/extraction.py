@@ -112,13 +112,13 @@ def find_dates(text: str) -> list[tuple[str, int]]:
             ('2018-01-15 12:00', 15)
         ]
     """
-    # Check for multiples of the same token
-    token_counts = {}
     found_indicators = find_date_time_indicators(text)
     if len(found_indicators) == 0:
         return []
-
     found_tokens = [indicator.token for indicator in found_indicators]
+
+    # Check for multiples of the same token
+    token_counts = {}
     for entry in found_tokens:
         token_counts[entry] = found_tokens.count(entry)
 
@@ -126,9 +126,8 @@ def find_dates(text: str) -> list[tuple[str, int]]:
     for token in token_counts:
         token_running_counts[token] = 0
 
-    words = text.split()
-
     tokens = []
+    words = text.split()
     located_positions = set()
 
     for indicator in found_indicators:
@@ -153,20 +152,20 @@ def find_dates(text: str) -> list[tuple[str, int]]:
             # w_to_check = w_to_check.replace(" ", "")
 
             if token == w_to_check:
-                if token_running_counts[token] == token_counts[token]:
-                    break
+                # if token_running_counts[token] == token_counts[token]:
+                #     break
                 token_running_counts[token] += 1
                 located_positions.add(i)
                 tokens.append(DateIndicator(token, i, token_type))
                 found_indicators.remove(indicator)
                 if token_running_counts[token] == token_counts[token]:
                     break
-    
+
     # Peform backup search (counting the number of spaces preceeding
     # the token) for any tokens which were not located in previous step
     for indicator in found_indicators:
         token, token_type = indicator.token, indicator.time_type
-        spaces_before_token = text[:text.find(token)].count(" ")
+        spaces_before_token = text[: text.find(token)].count(" ")
         tokens.append(DateIndicator(token, spaces_before_token, token_type))
 
     groups = group_tokens(text, tokens)
