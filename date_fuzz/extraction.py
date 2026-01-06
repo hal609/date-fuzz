@@ -127,46 +127,49 @@ def find_dates(text: str) -> list[tuple[str, int]]:
         token_running_counts[token] = 0
 
     tokens = []
-    words = text.split()
+    # words = text.split()
     located_positions = set()
 
-    for indicator in found_indicators:
-        token, token_type = indicator.token, indicator.time_type
+    # for indicator in found_indicators:
+    #     token, token_type = indicator.token, indicator.time_type
 
-        for i, _w in enumerate(words):
-            # Skip previously matched entries to prevent collisions
-            if i in located_positions:
-                continue
+    #     for i, _w in enumerate(words):
+    #         # Skip previously matched entries to prevent collisions
+    # if i in located_positions:
+    #     continue
 
-            # If the token has multiple words then check sequences of that number of words
-            num_words = token.count(" ") + 1
+    #         # If the token has multiple words then check sequences of that number of words
+    #         num_words = token.count(" ") + 1
 
-            # Although it looks like this will overflow the words list, python just handles trying to slice beyond the end
-            w_to_check = " ".join(words[i : i + num_words])
+    #         # Although it looks like this will overflow the words list, python just handles trying to slice beyond the end
+    #         w_to_check = " ".join(words[i : i + num_words])
 
-            # Strip extra characters to ensure indicators are located correctly in text recognition
-            w_to_check = w_to_check.replace(".", "")
-            w_to_check = w_to_check.replace(",", "")
-            w_to_check = w_to_check.replace(")", "")
-            w_to_check = w_to_check.replace("(", "")
-            # w_to_check = w_to_check.replace(" ", "")
+    #         # Strip extra characters to ensure indicators are located correctly in text recognition
+    #         w_to_check = w_to_check.replace(".", "")
+    #         w_to_check = w_to_check.replace(",", "")
+    #         w_to_check = w_to_check.replace(")", "")
+    #         w_to_check = w_to_check.replace("(", "")
+    #         # w_to_check = w_to_check.replace(" ", "")
 
-            if token == w_to_check:
-                # if token_running_counts[token] == token_counts[token]:
-                #     break
-                token_running_counts[token] += 1
-                located_positions.add(i)
-                tokens.append(DateIndicator(token, i, token_type))
-                found_indicators.remove(indicator)
-                if token_running_counts[token] == token_counts[token]:
-                    break
+    #         if token == w_to_check:
+    #             if token_running_counts[token] == token_counts[token]:
+    #                 break
+    #             token_running_counts[token] += 1
+    #             located_positions.add(i)
+    #             tokens.append(DateIndicator(token, i, token_type))
+    #             found_indicators.remove(indicator)
+    #             if token_running_counts[token] == token_counts[token]:
+    #                 break
 
     # Peform backup search (counting the number of spaces preceeding
     # the token) for any tokens which were not located in previous step
     for indicator in found_indicators:
         token, token_type = indicator.token, indicator.time_type
         spaces_before_token = text[: text.find(token)].count(" ")
+        if spaces_before_token in located_positions:
+            continue
         tokens.append(DateIndicator(token, spaces_before_token, token_type))
+        located_positions.add(spaces_before_token)
 
     groups = group_tokens(text, tokens)
     formatted_groups = format_token_groups(groups)
@@ -344,9 +347,29 @@ def get_token_type(group: list[DateIndicator], tok_type: IndicatorType) -> str:
     return ""
 
 
+def update_date(new_date: str) -> tuple[str, str, str]:
+    for char in ["/", "\\", "-", "."]:
+        new_date = new_date.replace(char, " ")
+
+    date_split = new_date.split()
+
+    if len(date_split[0]) == 4:
+        year, month, day = date_split
+    else:
+        day, month, year = date_split
+    if int(month) > 12:
+        month, day = day, month
+
+    return year, month, day
+
+
 def update_next_datetime(
     group: list[DateIndicator], year: str, month: str, day: str, weekday: str, time: str
 ) -> tuple[str, str, str, str, str]:
+    if has_token_type(group, IndicatorType.DATE):
+        new_date = get_token_type(group, IndicatorType.DATE)
+        year, month, day = update_date(new_date)
+
     if has_token_type(group, IndicatorType.YEAR):
         new_year = get_token_type(group, IndicatorType.YEAR)
         # If the next date is in a new year then reset all lower level info e.g. month and day and update year
@@ -378,8 +401,7 @@ def update_next_datetime(
     if day.lower() in date_dict:
         day = date_dict[day.lower()]
 
-    if has_token_type(group, IndicatorType.WEEKDAY):
-        weekday = get_token_type(group, IndicatorType.WEEKDAY)
+    weekday = get_token_type(group, IndicatorType.WEEKDAY) if has_token_type(group, IndicatorType.WEEKDAY) else weekday
 
     if month.lower() in month_dict:
         month = month_dict[month.lower()]
@@ -406,9 +428,9 @@ def format_token_groups(groups: list[list[DateIndicator]]) -> list[tuple[str, in
 
         group_start_locations.append(min([token.pos for token in group]))
 
-        if has_token_type(group, IndicatorType.DATE):
-            formatted_groups.append(get_token_type(group, IndicatorType.DATE))
-            continue
+        # if has_token_type(group, IndicatorType.DATE):
+        #     formatted_groups.append(get_token_type(group, IndicatorType.DATE))
+        #     continue
 
         year, month, day, weekday, time = update_next_datetime(group, year, month, day, weekday, time)
 
