@@ -119,7 +119,11 @@ def find_dates(text: str, context: Optional[str] = None) -> list[tuple[str, int]
     groups = group_tokens(text, tokens)
 
     if context:
-        formatted_groups = format_token_groups(groups, group_tokens(context, find_tokens(context)))
+        context_tokens = find_tokens(context)
+
+    if context and context_tokens:
+        context_groups = group_tokens(context, context_tokens)
+        formatted_groups = format_token_groups(groups, context_groups)
     else:
         formatted_groups = format_token_groups(groups)
 
@@ -349,6 +353,8 @@ def update_next_datetime(
 ) -> tuple[str, str, str, str, str]:
     if has_token_type(group, IndicatorType.DATE):
         new_date = get_token_type(group, IndicatorType.DATE)
+        weekday = ""
+        time = ""
         year, month, day = update_date(new_date)
 
     if has_token_type(group, IndicatorType.YEAR):
@@ -377,7 +383,7 @@ def update_next_datetime(
             time = ""
         day, weekday = update_day(day, new_day, weekday)
 
-    time = get_token_type(group, IndicatorType.TIME) if has_token_type(group, IndicatorType.TIME) else time
+    time = get_token_type(group, IndicatorType.TIME) if has_token_type(group, IndicatorType.TIME) else ""
 
     if day.lower() in date_dict:
         day = date_dict[day.lower()]
@@ -411,6 +417,11 @@ def format_token_groups(
         # likely not actually indicating a date and that group should be removed
         # to prevent erroneously matching phrases such as: "the second time I went"
         if len(group) == 1 and group[0].time_type == IndicatorType.DAY_WORD:
+            continue
+
+        # If text just contains the word "may" then it is likely not indicating a month
+        # but instead just the word may - so skip that group.
+        if len(group) == 1 and group[0].token.lower() == "may":
             continue
 
         group_start_locations.append(min([token.pos for token in group]))
