@@ -1,5 +1,6 @@
 import re
 from copy import deepcopy
+from typing import Optional
 
 from .extraction_classes import (
     DateIndicator,
@@ -90,7 +91,7 @@ def strip_dates(text: str) -> str:
     return stripped_text.replace("  ", " ")
 
 
-def find_dates(text: str) -> list[tuple[str, int]]:
+def find_dates(text: str, context: Optional[str] = None) -> list[tuple[str, int]]:
     """Returns a list of tuples comprising the located date and the
     word index at which it was found.
 
@@ -112,7 +113,20 @@ def find_dates(text: str) -> list[tuple[str, int]]:
             ('2018-01-15 12:00', 15)
         ]
     """
+    tokens = find_tokens(text)
+    groups = group_tokens(text, tokens)
+
+    if context:
+        formatted_groups = format_token_groups(groups, group_tokens(context, find_tokens(context)))
+    else:
+        formatted_groups = format_token_groups(groups)
+
+    return formatted_groups
+
+
+def find_tokens(text: str) -> list[DateIndicator]:
     found_indicators = find_date_time_indicators(text)
+
     if len(found_indicators) == 0:
         return []
     found_tokens = [indicator.token for indicator in found_indicators]
@@ -127,42 +141,9 @@ def find_dates(text: str) -> list[tuple[str, int]]:
         token_running_counts[token] = 0
 
     tokens = []
-    # words = text.split()
     located_positions = set()
 
-    # for indicator in found_indicators:
-    #     token, token_type = indicator.token, indicator.time_type
-
-    #     for i, _w in enumerate(words):
-    #         # Skip previously matched entries to prevent collisions
-    # if i in located_positions:
-    #     continue
-
-    #         # If the token has multiple words then check sequences of that number of words
-    #         num_words = token.count(" ") + 1
-
-    #         # Although it looks like this will overflow the words list, python just handles trying to slice beyond the end
-    #         w_to_check = " ".join(words[i : i + num_words])
-
-    #         # Strip extra characters to ensure indicators are located correctly in text recognition
-    #         w_to_check = w_to_check.replace(".", "")
-    #         w_to_check = w_to_check.replace(",", "")
-    #         w_to_check = w_to_check.replace(")", "")
-    #         w_to_check = w_to_check.replace("(", "")
-    #         # w_to_check = w_to_check.replace(" ", "")
-
-    #         if token == w_to_check:
-    #             if token_running_counts[token] == token_counts[token]:
-    #                 break
-    #             token_running_counts[token] += 1
-    #             located_positions.add(i)
-    #             tokens.append(DateIndicator(token, i, token_type))
-    #             found_indicators.remove(indicator)
-    #             if token_running_counts[token] == token_counts[token]:
-    #                 break
-
-    # Peform backup search (counting the number of spaces preceeding
-    # the token) for any tokens which were not located in previous step
+    # Count the number of spaces preceeding the token to locate word position
     for indicator in found_indicators:
         token, token_type = indicator.token, indicator.time_type
         spaces_before_token = text[: text.find(token)].count(" ")
@@ -171,10 +152,7 @@ def find_dates(text: str) -> list[tuple[str, int]]:
         tokens.append(DateIndicator(token, spaces_before_token, token_type))
         located_positions.add(spaces_before_token)
 
-    groups = group_tokens(text, tokens)
-    formatted_groups = format_token_groups(groups)
-
-    return formatted_groups
+    return tokens
 
 
 def group_tokens(text: str, tokens: list[DateIndicator]) -> list[list[DateIndicator]]:
@@ -409,7 +387,9 @@ def update_next_datetime(
     return year, month, day, weekday, time
 
 
-def format_token_groups(groups: list[list[DateIndicator]]) -> list[tuple[str, int]]:
+def format_token_groups(
+    groups: list[list[DateIndicator]], context_groups: Optional[list[list[DateIndicator]]] = None
+) -> list[tuple[str, int]]:
     year = ""
     month = "00"
     day = "00"
@@ -418,6 +398,10 @@ def format_token_groups(groups: list[list[DateIndicator]]) -> list[tuple[str, in
 
     formatted_groups = []
     group_start_locations = []
+
+    if context_groups:
+        for group in context_groups:
+            year, month, day, weekday, time = update_next_datetime(group, year, month, day, weekday, time)
 
     for group in groups:
         # If a group contains only a day word e.g. first second third then it is
