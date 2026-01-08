@@ -114,6 +114,8 @@ def find_dates(text: str, context: Optional[str] = None) -> list[tuple[str, int]
         ]
     """
     tokens = find_tokens(text)
+    if len(tokens) == 0:
+        return []
     groups = group_tokens(text, tokens)
 
     if context:
@@ -129,6 +131,7 @@ def find_tokens(text: str) -> list[DateIndicator]:
 
     if len(found_indicators) == 0:
         return []
+
     found_tokens = [indicator.token for indicator in found_indicators]
 
     # Check for multiples of the same token
