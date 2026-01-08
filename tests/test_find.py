@@ -18,7 +18,7 @@ def test_find():
 
     text = "Event A occured (07/11/2025, around 21:00-22:00). 2014-12-02"
     found_dates = find_dates(text)
-    expected_out = [("2025-11-07 21:00", 3), ("2014-12-02 21:00", 6)]
+    expected_out = [("2025-11-07 21:00", 3), ("2014-12-02", 6)]
     print("\nText :", text)
     print("Found:", found_dates)
     print("Expct:", expected_out)
